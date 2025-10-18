@@ -117,14 +117,27 @@ class ILI9488:
         self.cs.value(1)
 
     def fill(self, colour):
-        line = array("H", [colour] * self.width)
-        self.set_window(0, 0, self.width - 1, self.height - 1)
+        self.fill_rect(0, 0, self.width, self.height, colour)
+
+    def fill_rect(self, x, y, w, h, colour):
+        line = array("H", [colour] * w)
+        self.set_window(x, y, x + w - 1, y + h - 1)
         self.dc.value(1)
         self.cs.value(0)
         row_bytes = memoryview(line)
-        for _ in range(self.height):
+        for _ in range(h):
             self.spi.write(row_bytes)
         self.cs.value(1)
+
+
+def _draw_text(lcd, text, x, y, colour, background):
+    width = max(1, len(text) * 8)
+    height = 8
+    buf = bytearray(width * height * 2)
+    fb = framebuf.FrameBuffer(buf, width, height, framebuf.RGB565)
+    fb.fill(background)
+    fb.text(text, 0, 0, colour)
+    lcd.blit(buf, x, y, width, height)
 
 
 def main():
@@ -150,26 +163,23 @@ def main():
         lcd.fill(value)
         time.sleep(0.4)
 
-    buffer = bytearray(lcd.width * lcd.height * 2)
-    fb = framebuf.FrameBuffer(buffer, lcd.width, lcd.height, framebuf.RGB565)
+    lcd.fill(colours["CZARNY"])
 
-    fb.fill(colours["CZARNY"])
+    lcd.fill_rect(0, 0, lcd.width, 40, colours["NIEBIESKI"])
+    _draw_text(lcd, "Waveshare 3.5\" LCD", 10, 12, colours["BIAŁY"], colours["NIEBIESKI"])
 
-    fb.fill_rect(0, 0, lcd.width, 40, colours["NIEBIESKI"])
-    fb.text("Waveshare 3.5\" LCD", 10, 12, colours["BIAŁY"])
-
-    fb.fill_rect(0, lcd.height - 60, lcd.width, 60, colours["ZIELONY"])
-    fb.text("Raspberry Pi Pico", 10, lcd.height - 50, colours["CZARNY"])
-    fb.text("Test ekranu", 10, lcd.height - 30, colours["CZARNY"])
+    lcd.fill_rect(0, lcd.height - 60, lcd.width, 60, colours["ZIELONY"])
+    _draw_text(lcd, "Raspberry Pi Pico", 10, lcd.height - 50, colours["CZARNY"], colours["ZIELONY"])
+    _draw_text(lcd, "Test ekranu", 10, lcd.height - 30, colours["CZARNY"], colours["ZIELONY"])
 
     for i, (name, value) in enumerate(colours.items()):
-        fb.fill_rect(40 + i * 80, 80, 60, 120, value)
-        fb.text(name, 40 + i * 80 - 10, 210, colours["BIAŁY"] if value != colours["BIAŁY"] else colours["CZARNY"])
+        block_x = 40 + i * 80
+        lcd.fill_rect(block_x, 80, 60, 120, value)
+        label_colour = colours["CZARNY"] if value == colours["BIAŁY"] else colours["BIAŁY"]
+        _draw_text(lcd, name, block_x - 10, 210, label_colour, colours["CZARNY"])
 
-    fb.text("Dotknij ekran (jeśli masz kontroler dotyku)", 10, 250, colours["BIAŁY"])
-    fb.text("Aby zakończyć, naciśnij Ctrl+C", 10, 270, colours["BIAŁY"])
-
-    lcd.blit(buffer)
+    _draw_text(lcd, "Dotknij ekran (jesli masz kontroler dotyku)", 10, 250, colours["BIAŁY"], colours["CZARNY"])
+    _draw_text(lcd, "Aby zakonczyc, nacisnij Ctrl+C", 10, 270, colours["BIAŁY"], colours["CZARNY"])
 
     while True:
         time.sleep(1)
