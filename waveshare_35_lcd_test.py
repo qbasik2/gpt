@@ -121,7 +121,7 @@ class ILI9488:
         self.set_window(0, 0, self.width - 1, self.height - 1)
         self.dc.value(1)
         self.cs.value(0)
-        row_bytes = line.tobytes()
+        row_bytes = memoryview(line)
         for _ in range(self.height):
             self.spi.write(row_bytes)
         self.cs.value(1)
