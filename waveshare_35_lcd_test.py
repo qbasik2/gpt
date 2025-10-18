@@ -140,6 +140,37 @@ def _draw_text(lcd, text, x, y, colour, background):
     lcd.blit(buf, x, y, width, height)
 
 
+def _draw_test_pattern(lcd, x, y, w, h):
+    """Render a gradient and checker pattern without allocating a full frame."""
+
+    if w <= 0 or h <= 0:
+        return
+
+    max_x = max(1, w - 1)
+    max_y = max(1, h - 1)
+    max_diag = max(1, w + h - 2)
+
+    row = bytearray(w * 2)
+    row_mv = memoryview(row)
+
+    lcd.set_window(x, y, x + w - 1, y + h - 1)
+    lcd.dc.value(1)
+    lcd.cs.value(0)
+    try:
+        for row_idx in range(h):
+            for col in range(w):
+                r = (col * 31) // max_x
+                g = (row_idx * 63) // max_y
+                b = ((col + row_idx) * 31) // max_diag
+                colour = (r << 11) | (g << 5) | b
+                offset = col * 2
+                row[offset] = colour >> 8
+                row[offset + 1] = colour & 0xFF
+            lcd.spi.write(row_mv)
+    finally:
+        lcd.cs.value(1)
+
+
 def main():
     spi = SPI(1, baudrate=40_000_000, polarity=0, phase=0, sck=Pin(10), mosi=Pin(11), miso=Pin(12))
     dc = Pin(8, Pin.OUT)
@@ -167,6 +198,16 @@ def main():
 
     lcd.fill_rect(0, 0, lcd.width, 40, colours["NIEBIESKI"])
     _draw_text(lcd, "Waveshare 3.5\" LCD", 10, 12, colours["BIAŁY"], colours["NIEBIESKI"])
+
+    pattern_margin = 20
+    pattern_height = lcd.height - 120
+    _draw_test_pattern(
+        lcd,
+        pattern_margin,
+        50,
+        lcd.width - pattern_margin * 2,
+        pattern_height,
+    )
 
     lcd.fill_rect(0, lcd.height - 60, lcd.width, 60, colours["ZIELONY"])
     _draw_text(lcd, "Raspberry Pi Pico", 10, lcd.height - 50, colours["CZARNY"], colours["ZIELONY"])
